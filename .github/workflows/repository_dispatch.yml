@@ -1,23 +1,44 @@
-name: Remote Trigger
+name: ESP32 Arduino master branch
 
-on: repository_dispatch
+on:
+  workflow_dispatch: # Manually start a workflow
+#  push:
+#    branches: master
+#    paths-ignore:
+#    - '.github/**' # Ignore changes towards the .github directory
 
 jobs:
-  run:
-    name: Dispatch Event
+  build-libs:
+    name: Build Arduino Libs
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - name: Install dependencies
-      run: bash ./tools/prepare-ci.sh
-    - name: Handle Event
-      env:
-        GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
-        GIT_AUTHOR_EMAIL: ${{ secrets.PUSH_EMAIL }}
-        GIT_COMMITTER_EMAIL: ${{ secrets.PUSH_EMAIL }}
-      run: bash ./tools/repository_dispatch.sh
-    - name: Upload archive
-      uses: actions/upload-artifact@v1
-      with:
-        name: artifacts
-        path: dist
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.8.10"
+          architecture: "x64"
+      - name: Install dependencies
+        run: bash ./tools/prepare-ci.sh
+      - name: Build Arduino Libs
+        run: bash ./build.sh
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: esp32-arduino
+          path: dist
+      - name: Download new builded framework
+        uses: actions/download-artifact@v2
+        with:
+          name: esp32-arduino
+          path: ./esp32-arduino
+      - name: Display files from folder esp32-arduino
+        run: ls esp32-arduino/*
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        #if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.run_number }}
+          prerelease: true
+          files: esp32-arduino/framework*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
